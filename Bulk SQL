@@ -1,0 +1,92 @@
+import mysql.connector
+from pandas import DataFrame
+import pandas as pd
+import numpy as np
+
+
+mydb = mysql.connector.connect(
+  host="127.0.0.1",
+  user="root",
+  password="Open@123",
+  database="Ashmin",
+  autocommit=True
+)
+
+mycursor=mydb.cursor()
+resultset_Unique_batch_id_to_update = [('BP1377080'), ('AP1377173'), ('BP1377186'), ('BP1377202'), ('BP1377231'), ('AP1377256'), ('BP1377259'), ('AP1377292'), ('AP1377294'), ('BP1377296'), ('AP1377344'), ('BP1377346'), ('BP1377342'), ('BP1377351'), ('BP1377352'), ('BP1377366'), ('BP1377373')]
+update_reviewers_query = "update bulk_transfer_cron_assignments set is_verified_batch =1 where batch_id  IN ('BP1377080')"
+mycursor.executemany(update_reviewers_query,resultset_Unique_batch_id_to_update)
+print(update_reviewers_query,resultset_Unique_batch_id_to_update)
+mydb.commit()
+
+
+mycursor=mydb.cursor()
+resultset_Unique_batch_id_to_update = [('BP1377080'), ('AP1377173'), ('BP1377186'), ('BP1377202'), ('BP1377231'), ('AP1377256'), ('BP1377259'), ('AP1377292'), ('AP1377294'), ('BP1377296'), ('AP1377344'), ('BP1377346'), ('BP1377342'), ('BP1377351'), ('BP1377352'), ('BP1377366'), ('BP1377373')]
+update_reviewers_query = "update bulk_transfer_cron_assignments set is_verified_batch =1 where batch_id in  %s"
+mycursor.executemany(update_reviewers_query,resultset_Unique_batch_id_to_update)
+print(update_reviewers_query,resultset_Unique_batch_id_to_update)
+mydb.commit()
+
+mycursor = mydb.cursor()
+mycursor.execute("Select distinct batch_id from  fund_transfer_bulk_intermediaries where  date(created_at) = (select date(sysdate()) from dual) and Batch_id!=' ' and batch_id not in( Select distinct batch_id from fund_transfer_bulk_intermediaries ftbi join( Select recepient_name,ifsc_code,purpose,beneficiary_account_number,amount from fund_transfer_bulk_intermediaries where date(created_at) = (select date(sysdate()) from dual) and Batch_id!=' ' and amount>0 group by recepient_name,ifsc_code,purpose,beneficiary_account_number,amount having count(*)>1) t1 on ftbi.recepient_name=t1.recepient_name and date(ftbi.created_at) = (select date(sysdate()) from dual))")
+resultset_Unique_batch_id_to_update =mycursor.fetchall()
+#print (resultset_Unique_batch_id_to_update)
+
+
+
+mycursor=mydb.cursor()
+mycursor.execute("Select distinct batch_id from fund_transfer_bulk_intermediaries ftbi join( Select recepient_name,ifsc_code,purpose,beneficiary_account_number,amount from fund_transfer_bulk_intermediaries where date(created_at) = (select date(sysdate()) from dual)  and Batch_id!=' ' and amount>0 group by recepient_name,ifsc_code,purpose,beneficiary_account_number,amount having count(*)>1) t1 on ftbi.recepient_name=t1.recepient_name and date(ftbi.created_at) = (select date(sysdate()) from dual)")
+resultset_Duplicate_file =mycursor.fetchall()
+#print (resultset_Duplicate_file)
+
+mycursor=mydb.cursor()
+mycursor.execute("Select distinct batch_id from fund_transfer_bulk_intermediaries where date(created_at) = (select date(sysdate()) from dual) ")
+resultset_Duplicate_file_total =mycursor.fetchall()
+#print (resultset_Duplicate_file_total)
+
+
+mycursor=mydb.cursor()
+update_reviewers_query = """update bulk_transfer_cron_assignments set is_verified_batch =1 where batch_id  id in ( %s)"""
+mycursor.executemany(update_reviewers_query,resultset_Unique_batch_id_to_update)
+print(update_reviewers_query,resultset_Unique_batch_id_to_update)
+mydb.commit()
+
+
+a = set(resultset_Duplicate_file_total)
+b = set(resultset_Duplicate_file)
+
+if a == b:
+  print("Duplicate batch_id not found")
+else:
+  df1 = pd.DataFrame(resultset_Duplicate_file)
+  insert_reviewers_query = """
+  INSERT INTO bulk_transfer_duplicate_files_1
+  (batch_id)
+  VALUES ( %s )
+  """
+  mycursor.executemany(insert_reviewers_query, resultset_Duplicate_file)
+  print("Record insert into table")
+mydb.commit()
+#update_reviewers_query = """
+#update bulk_transfer_cron_assignments set is_verified_batch =1 where batch_id  IN ( %s)"""
+#mycursor.executemany(update_reviewers_query, resultset_Unique_batch_id_to_update)
+
+#print(resultset1)
+#df1 = pd.DataFrame(resultset1)
+# record = []
+# for i in range(0,len(resultset1)):
+#         mycursor.executemany("INSERT INTO bulk_transfer_files_temp(batch_id,users_id) VALUES( {}, {}").format (resultset1[0], resultset1[1])
+# for x in resultset1:
+#  mydb.commit()
+# mycursor.close()
+#try:
+#mycursor.execute("select batch_id,users_id from bulk_transfer_duplicate_files_1")
+#resultset2 =mycursor.fetchall()
+#resultset1.compare(resultset2, keep_equal=True)
+#insert_reviewers_query = """
+#INSERT INTO bulk_transfer_duplicate_files_1
+#(batch_id,users_id)
+#VALUES ( %s, %s )
+#"""
+#mycursor.executemany(insert_reviewers_query, resultset1)
+#mydb.commit()
